@@ -21,5 +21,17 @@ void OnLogin(Socket* pSocket, const NET_MSG_LOGIN* pMsg)
 
 
     //we need a way to send result????
-    pSocket->send(NET_RESULT(NetResult::SUCCESS, NET_ID_LOGIN));
+    //pSocket->send(NET_RESULT(NetResult::SUCCESS, NET_ID_LOGIN));
+    pSocket->send(NET_MSG_HANDLE(pUser->m_hHandle));
+}
+
+void OnHandleRequest(Socket* pSocket, const NET_MSG_HANDLE* pMsg)
+{
+    if (pMsg->hHandle == NULL) {
+        // allocate new handle;
+
+        return;
+    }
+
+    // Get old handle?
 }

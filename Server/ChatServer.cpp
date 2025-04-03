@@ -4,6 +4,7 @@ void OnConnect(Socket* pSocket) {
 
     ChatUser* pUser = Server::AllocateUser();
 
+    //Set owner ship of the resource to the socket.
     pSocket->m_handle = pUser->m_hHandle;
 }
 
@@ -13,13 +14,17 @@ void OnMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData) {
         case NET_ID_LOGIN:
             OnLogin(pSocket, reinterpret_cast<const NET_MSG_LOGIN*>(pData));
         break;
+        case NET_ID_HEARTBEAT:
+            // Find a way to limit this?
+            pSocket->send(NET_MSG_HEART());
+        break;
     }
 
-  
+    // Log message sent?
 }
 
 
-
+// TODO: the server needs a way to clean up all disconnected sockets....
 int main()
 {
     Env env(FilePath("vars.env"));

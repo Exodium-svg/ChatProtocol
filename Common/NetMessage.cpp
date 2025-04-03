@@ -25,3 +25,5 @@ NET_MSG_LOGIN::NET_MSG_LOGIN(const char* pUsername, const char* pPassword)
 	memcpy_s(&username, sizeof(username), pUsername, nLenUsername);
 	memcpy_s(&password, sizeof(password), pPassword, nLenPassword);
 }
+
+NET_MSG_HANDLE::NET_MSG_HANDLE(const Handle hHandle): NET_MESSAGE(sizeof(NET_MSG_HANDLE), NET_ID_HANDLE, 0), hHandle(hHandle){}

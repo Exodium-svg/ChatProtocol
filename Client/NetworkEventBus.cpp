@@ -1,17 +1,17 @@
 #include "NetworkEventBus.h"
+
 void HandleMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData)
 {
 }
 
 void NetworkEventBus::NetLoop()
 {
-    while (m_bConnected) {
+    while (true) {
         std::lock_guard<std::mutex> lock(m_mQueueOut);
 
-        if (!m_socket.connected()) continue;
-
-        if (!m_bConnected) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (!m_socket.connected()) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            reconnect();
             continue;
         }
 
@@ -53,19 +53,15 @@ NetworkEventBus::NetworkEventBus(const std::string& sAddress, const uint16_t nPo
 
     m_qOutMessage = std::queue<NET_MESSAGE*>();
 
-    if (m_bConnected = m_socket.connected() != true)
-        throw std::runtime_error("Failed to connect to endpoint(?)");
-
     m_socket.onReceive(HandleMessage);
-    m_bConnected = true;
     m_tNetMain = std::thread([this] {NetLoop(); });
 }
 
-bool NetworkEventBus::connected() const { return m_bConnected; }
+bool NetworkEventBus::connected() { return m_socket.connected(); }
 
-bool NetworkEventBus::reconnect()
+void NetworkEventBus::reconnect()
 {
-    throw "Not implemented";
+    m_socket.Reconnect();
 }
 
 void NetworkEventBus::Dispatch(NET_MESSAGE* pMsg)

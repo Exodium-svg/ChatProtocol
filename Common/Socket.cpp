@@ -3,6 +3,25 @@
 
 //static WSADATA* wsadata;
 
+inline void ConnectToServer(Socket* pSocket) {
+	sockaddr_in addrTarget{};
+	addrTarget.sin_family = AF_INET;
+	addrTarget.sin_port = htons(pSocket->m_nPort); // ensure correct endian-ness
+
+	if (inet_pton(AF_INET, pSocket->m_cAddress, &addrTarget.sin_addr) != 1) {
+		throw std::runtime_error("Invalid address");
+	}
+
+	int nResult = connect(pSocket->m_hSocket, reinterpret_cast<sockaddr*>(&addrTarget), sizeof(sockaddr_in));
+
+	if (nResult == SOCKET_ERROR) {
+		std::ostringstream sstream;
+		sstream << "Failed to connect to endpoint: " << pSocket->m_cAddress << ":" << pSocket->m_nPort << " error: " << WSAGetLastError();
+
+		throw std::runtime_error(sstream.str());
+	}
+}
+
 void InitializeNetwork()
 {
 	if (NetworkReady())
@@ -24,6 +43,7 @@ void DeInitializeNetwork() { WSACleanup(); }
 
 BOOL NetworkReady()
 {
+	//TODO: implement me.
 	//if (wsadata != nullptr)
 	//	return TRUE;
 	return FALSE;
@@ -32,7 +52,7 @@ BOOL NetworkReady()
 void CALLBACK onCompletionRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
 	if (lpOverlapped->Pointer == nullptr)
-		throw "";
+		throw "Completion routine should always be called with the Overlapped pointer set.";
 
 	Socket* pSocket = reinterpret_cast<Socket*>(lpOverlapped->Pointer);
 
@@ -129,9 +149,12 @@ Socket::Socket(const SOCKET hSocket, const uint16_t nPort, const char* pAddress)
 
 Socket::Socket(const char* pAddress, const uint16_t nPort): m_handle(0), m_hSocket(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)), m_nPort(nPort)
 {
-	//constexpr size_t headerLen = sizeof(NET_MESSAGE);
 	ZeroMemory(&wsaEvent, sizeof(wsaEvent));
 	ZeroMemory(&m_cBuff, sizeof(m_cBuff));
+
+
+	bConnected.store(true);
+
 
 	wsaEvent.Pointer = (PVOID)this;
 	constexpr int nAddrLen = sizeof(m_cAddress);
@@ -140,31 +163,31 @@ Socket::Socket(const char* pAddress, const uint16_t nPort): m_handle(0), m_hSock
 		m_cAddress[strlen(pAddress)] = '\0';  // Null-terminate the string
 	}
 	else {
-		throw std::runtime_error("Address too large for m_cAddress");
+		bConnected.store(false);
 	}
 
 	if (m_hSocket == INVALID_SOCKET) {
-		throw std::runtime_error("Failed to create socket");
+		bConnected.store(false);
 	}
 
-	sockaddr_in addrTarget{};
-	addrTarget.sin_family = AF_INET;
-	addrTarget.sin_port = htons(nPort); // ensure correct endian-ness
-
-	if (inet_pton(AF_INET, pAddress, &addrTarget.sin_addr) != 1) {
-		throw std::runtime_error("Invalid address");
+	try {
+		ConnectToServer(this);
+		bConnected.store(true);
 	}
-
-	int nResult = connect(m_hSocket, reinterpret_cast<sockaddr*>(&addrTarget), sizeof(sockaddr_in));
-
-	if (nResult == SOCKET_ERROR) {
-		std::ostringstream sstream;
-		sstream << "Failed to connect to endpoint: " << pAddress << ":" << nPort << " error: " << WSAGetLastError();
-
-		throw std::runtime_error(sstream.str());
+	catch (const std::exception& ex) {
+		bConnected.store(false);
 	}
 	
-	bConnected.store(true);
+}
+
+void Socket::Reconnect() { 
+	try {
+		ConnectToServer(this);
+		bConnected.store(true);
+	}
+	catch (const std::exception& ex) {
+		bConnected.store(false);
+	}
 }
 
 Socket::~Socket()

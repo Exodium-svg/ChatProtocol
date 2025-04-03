@@ -41,6 +41,7 @@ private:
 public:
 	Socket(SOCKET hSocket, const uint16_t nPort, const char* pAddress);
 	Socket(const char* pAddress, const uint16_t nPort);
+	void Reconnect();
 	~Socket();
 	BOOL connected() { return bConnected.load(); }; // has to be atomic?
 	DWORD send(const void* pData, DWORD size);

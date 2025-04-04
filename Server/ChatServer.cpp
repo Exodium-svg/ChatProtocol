@@ -3,10 +3,10 @@ void OnConnect(Socket* pSocket) {
     pSocket->onReceive(OnMessage);
 
     ChatUser* pUser = Server::AllocateUser();
-    pSocket->send("Hello this is a test");
     //Set owner ship of the resource to the socket.
     pSocket->m_handle = pUser->m_hHandle;
-    pSocket->disconnect();
+    pSocket->send(NET_MSG_HEART());
+    //pSocket->disconnect();
 }
 
 void OnMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData) {

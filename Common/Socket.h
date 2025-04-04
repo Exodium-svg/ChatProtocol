@@ -21,23 +21,33 @@ void DLL_SPEC DeInitializeNetwork();
 BOOL DLL_SPEC NetworkReady();
 void CALLBACK onCompletionRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 
+
+enum DLL_SPEC Phase {
+	One,
+	Two,
+};
+
+struct DLL_SPEC SocketState {
+	char* m_pBuff;
+	Phase m_phase;
+	WSABUF m_wsaBuff;
+};
 // TODO's:
 // Rework handles to be a pointer instead...
 struct DLL_SPEC Socket
 {
-	std::mutex m_mtWsaEvent;
 	Handle m_handle;
+	std::mutex m_mtWsaEvent;
 	SOCKET m_hSocket; // socket handle;
 	const uint16_t m_nPort;
 	char m_cAddress[14];
 	char m_cBuff[sizeof(NET_MESSAGE)];
 	void(*m_onReceive)(Socket* pConn, const NET_MESSAGE, const void*) = nullptr;
 	std::atomic_bool bConnected;
-private:
-	
 	OVERLAPPED wsaEvent{};
-	WSAPOLLFD wsaPollfd{};
 	WSABUF wsaRoutine{};
+private:
+	WSAPOLLFD wsaPollfd{};
 public:
 	Socket(SOCKET hSocket, const uint16_t nPort, const char* pAddress);
 	Socket(const char* pAddress, const uint16_t nPort);

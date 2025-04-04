@@ -49,39 +49,52 @@ BOOL NetworkReady()
 	return FALSE;
 }
 
+inline void CloseSocket(Socket* pSocket) {
+	if (pSocket->bConnected == false)
+		return;
+
+	pSocket->bConnected.store(false);
+	closesocket(pSocket->m_hSocket);
+	pSocket->m_hSocket = NULL;
+}
+
 void CALLBACK onCompletionRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
+	
 	if (lpOverlapped->Pointer == nullptr)
 		throw "Completion routine should always be called with the Overlapped pointer set.";
 
 	Socket* pSocket = reinterpret_cast<Socket*>(lpOverlapped->Pointer);
+	std::lock_guard<std::mutex> lock(pSocket->m_mtWsaEvent);
+	// safe guard
+	if (!pSocket->connected()) {
+		return;
+	}
 
-	// If an error accurs that means that we are probably not connected anymore... Cleanup.
 	switch (dwError) {
 		case ERROR_SUCCESS:
-		break;
+			CloseSocket(pSocket);
+		return;
 		case WSAECONNRESET:
-			pSocket->disconnect();
+			CloseSocket(pSocket);
 			return;
 		case WSAETIMEDOUT: // Timed out
-			pSocket->disconnect();
+			CloseSocket(pSocket);
 			return;
 		case WSAENETDOWN: // Forcibly closed
-			pSocket->disconnect();
+			CloseSocket(pSocket);
 			return;
 		case WSAECONNABORTED: // Connection aborted
-			pSocket->disconnect();
+			CloseSocket(pSocket);
 			return;
 		default:
 			throw "Unknown system error(?)";
 	}
 
-	if (pSocket == nullptr || !pSocket->connected()) {
-		throw "Invalid socket state whilst trying to receive data(?)";
-	}
 	// We are out of sync.
+	// Best to just not question it, However when a shutdown message is received it will be caught in this condition aswell.
 	if (cbTransferred != sizeof(NET_MESSAGE)) {
-		pSocket->disconnect();
+		CloseSocket(pSocket);
 		return;
 	}
 
@@ -93,12 +106,25 @@ void CALLBACK onCompletionRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERL
 		return;
 	}
 
-	void* pBuff = malloc(pHeader->length);
+	// Implement stack allocation for small packets?
+	bool bStackAlloc = false;
+	if (1024 > pHeader->length)
+		bStackAlloc = true;
 
+	void* pBuff;
+	
+	if (bStackAlloc)
+		pBuff = _alloca(pHeader->length);
+	else
+		pBuff = malloc(pHeader->length);
+	
 	// We check if it has all been sent in one packet, or we just pretend it hasn't been sent at all.
 	const DWORD nReceivedBytes = pSocket->receive(pBuff, pHeader->length);
 
 	if (nReceivedBytes != pHeader->length) {
+		if(!bStackAlloc)
+			free(pBuff);
+
 		pSocket->disconnect();
 		return;
 	}
@@ -111,7 +137,8 @@ void CALLBACK onCompletionRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERL
 		// handling errors here?
 	}
 
-	free(pBuff);
+	if (!bStackAlloc)
+		free(pBuff);
 
 	if (pSocket->connected())
 		pSocket->setCompletionRoutine(onCompletionRoutine);
@@ -135,7 +162,9 @@ void Socket::pollEvents()
 
 Socket::Socket(const SOCKET hSocket, const uint16_t nPort, const char* pAddress): m_handle(NULL), m_hSocket(hSocket), m_nPort(nPort)
 {
+	bConnected = true;
 	ZeroMemory(&wsaEvent, sizeof(wsaEvent));
+	ZeroMemory(m_cBuff, sizeof(m_cBuff));
 	constexpr int nAddrLen = sizeof(m_cAddress) - 1;
 	memcpy_s(static_cast<char*>(m_cAddress), nAddrLen, pAddress, strlen(pAddress));
 	m_cAddress[sizeof(m_cAddress) -1] = '\0';
@@ -144,17 +173,16 @@ Socket::Socket(const SOCKET hSocket, const uint16_t nPort, const char* pAddress)
 
 	wsaEvent.Pointer = (PVOID)this;
 	
-	pollEvents();
+	//pollEvents();
 }
 
 Socket::Socket(const char* pAddress, const uint16_t nPort): m_handle(0), m_hSocket(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)), m_nPort(nPort)
 {
 	ZeroMemory(&wsaEvent, sizeof(wsaEvent));
-	ZeroMemory(&m_cBuff, sizeof(m_cBuff));
-
+	ZeroMemory(m_cBuff, sizeof(m_cBuff));
+	ZeroMemory(m_cAddress, sizeof(m_cAddress));
 
 	bConnected.store(true);
-
 
 	wsaEvent.Pointer = (PVOID)this;
 	constexpr int nAddrLen = sizeof(m_cAddress);
@@ -192,10 +220,7 @@ void Socket::Reconnect() {
 
 Socket::~Socket()
 {
-	if (connected())
 		disconnect();
-	else
-		closesocket(m_handle);
 }
 
 DWORD Socket::send(const void* pData, DWORD size)
@@ -244,6 +269,9 @@ void Socket::onReceive(void(*onReceive)(Socket*, const NET_MESSAGE, const void*)
 
 void Socket::setCompletionRoutine(void(*completionRoutine)(DWORD, DWORD, LPWSAOVERLAPPED, DWORD))
 {
+	if (!connected())
+		return;
+
 	DWORD dwHeaderSize = (DWORD)sizeof(NET_MESSAGE);
 	DWORD dwFlags = MSG_PEEK;
 	// should have it's own wsaBUFF for routines.
@@ -265,11 +293,20 @@ void Socket::setCompletionRoutine(void(*completionRoutine)(DWORD, DWORD, LPWSAOV
 
 void Socket::disconnect()
 {
-	// we don't really care about the result here
-	if(connected())
+	// safeguard
+	if (m_hSocket == NULL)
+		return;
+
+	// We're canceling all pending operations, In case any are going on that might overwrite other resources.
+	std::lock_guard<std::mutex> lock(m_mtWsaEvent);
+
+
+	if (connected()) {
 		shutdown(m_hSocket, SD_BOTH);
+	}
 
 	bConnected.store(false);
 	closesocket(m_hSocket);
+	m_hSocket = NULL;
 }
 

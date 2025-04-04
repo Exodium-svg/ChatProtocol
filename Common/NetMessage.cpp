@@ -22,6 +22,10 @@ NET_MSG_LOGIN::NET_MSG_LOGIN(const char* pUsername, const char* pPassword)
 		throw std::runtime_error("Password length too long");
 	}
 
+	// Gotta make sure we don't accidently sent data we should not.
+	ZeroMemory(&username, sizeof(username));
+	ZeroMemory(&password, sizeof(password));
+
 	memcpy_s(&username, sizeof(username), pUsername, nLenUsername);
 	memcpy_s(&password, sizeof(password), pPassword, nLenPassword);
 }

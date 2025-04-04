@@ -2,6 +2,11 @@
 
 void HandleMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData)
 {
+    switch (header.id) {
+        // we ignore this one, as it is a response to our heartbeat.
+    case NET_ID_HEARTBEAT:
+        break;
+    }
 }
 
 void NetworkEventBus::NetLoop()
@@ -11,6 +16,7 @@ void NetworkEventBus::NetLoop()
 
         if (!m_socket.connected()) {
             std::this_thread::sleep_for(std::chrono::seconds(5));
+            //TODO fix me: This is broken, still have to fix this...
             reconnect();
             continue;
         }
@@ -20,7 +26,7 @@ void NetworkEventBus::NetLoop()
 
         // this is broken somehow?
         if (msCurTime > m_msLastBeat) {
-            m_msLastBeat = msCurTime + std::chrono::milliseconds(100);
+            m_msLastBeat = msCurTime + std::chrono::milliseconds(10000);
             m_socket.send(NET_MSG_HEART());
         }
 

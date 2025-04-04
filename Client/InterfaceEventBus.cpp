@@ -19,7 +19,7 @@ void InterfaceEventBus::BusLoop()
 	while (m_bActive) {
 		std::lock_guard<std::mutex> lock(m_busMutex);
 		if (m_queue.empty()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			continue;
 		}
 
@@ -37,7 +37,7 @@ void InterfaceEventBus::HandleMessage(const UiMsg* pMsg)
 {
 	switch (pMsg->m_nId) {
 		case UI_LOGIN_ID:
-			OnLogin(reinterpret_cast<const UiLogin*>(pMsg));
+			OnLogin(reinterpret_cast<const UiLogin*>(pMsg)); 
 		break;
 		default:
 			throw std::format("Unknown UiMessage ID has been dispatched %d", pMsg->m_nId);

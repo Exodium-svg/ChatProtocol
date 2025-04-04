@@ -17,6 +17,4 @@ UiLogin::UiLogin(const char* pUsername, const char* pPassword)
 
     memset(password, '\0', PASSWORD_LEN);
     strcpy_s(password, PASSWORD_LEN, pPassword);
-
-    
 }

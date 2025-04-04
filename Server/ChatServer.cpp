@@ -3,9 +3,10 @@ void OnConnect(Socket* pSocket) {
     pSocket->onReceive(OnMessage);
 
     ChatUser* pUser = Server::AllocateUser();
-
+    pSocket->send("Hello this is a test");
     //Set owner ship of the resource to the socket.
     pSocket->m_handle = pUser->m_hHandle;
+    pSocket->disconnect();
 }
 
 void OnMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData) {
@@ -38,9 +39,13 @@ int main()
 
     SocketAccepter accepter(address.c_str(), port.c_str(), OnConnect);
 
-    
-    Sleep(10000000000);
-    return 0;
+    HANDLE hProcess = OpenProcess(SYNCHRONIZE, FALSE, GetCurrentProcessId());
+
+    DWORD dwWaitResult = WaitForSingleObject(hProcess, INFINITE);
+
+    CloseHandle(hProcess);
+
+    return dwWaitResult;
 }
 
 

@@ -20,7 +20,7 @@ DLL_SPEC enum NetResult : uint16_t {
 #pragma pack(push, 1)  // Set the packing alignment to 1 byte
 
 //TODO: this information could be used on the server as a hash to check whether someone is already in memory? NOTE: make sure to disconnect everything else.
-struct DLL_SPEC NET_MSG_LOGIN : private NET_MESSAGE {
+struct DLL_SPEC NET_MSG_LOGIN : public NET_MESSAGE {
 public:
 	char username[USERNAME_LENGTH];
 	char password[PASSWORD_LENGTH];
@@ -28,7 +28,7 @@ public:
 	NET_MSG_LOGIN(const char* pUsername, const char* pPassword);
 };
 
-struct DLL_SPEC NET_RESULT : private NET_MESSAGE {
+struct DLL_SPEC NET_RESULT : public NET_MESSAGE {
 public:
 	const uint16_t nNetId;
 	const uint16_t nResult;
@@ -36,12 +36,12 @@ public:
 	NET_RESULT(const NetResult result, const uint16_t id);
 };
 
-struct DLL_SPEC NET_MSG_HEART : private NET_MESSAGE {
+struct DLL_SPEC NET_MSG_HEART : public NET_MESSAGE {
 public:
 	NET_MSG_HEART();
 };
 
-struct DLL_SPEC NET_MSG_HANDLE : private NET_MESSAGE {
+struct DLL_SPEC NET_MSG_HANDLE : public NET_MESSAGE {
 public:
 	const Handle hHandle;
 	NET_MSG_HANDLE(const Handle hHandle);

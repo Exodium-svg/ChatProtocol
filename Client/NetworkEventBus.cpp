@@ -1,8 +1,8 @@
 #include "NetworkEventBus.h"
 
-void HandleMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData)
+void HandleMessage(Socket* pSocket, const NET_MESSAGE* pMsg)
 {
-    switch (header.id) {
+    switch (pMsg->id) {
         // we ignore this one, as it is a response to our heartbeat.
     case NET_ID_HEARTBEAT:
         break;
@@ -14,7 +14,7 @@ void NetworkEventBus::NetLoop()
     while (true) {
         std::lock_guard<std::mutex> lock(m_mQueueOut);
 
-        if (!m_socket.connected()) {
+        if (!m_socket.bConnected) {
             std::this_thread::sleep_for(std::chrono::seconds(5));
             //TODO fix me: This is broken, still have to fix this...
             reconnect();
@@ -27,7 +27,7 @@ void NetworkEventBus::NetLoop()
         // this is broken somehow?
         if (msCurTime > m_msLastBeat) {
             m_msLastBeat = msCurTime + std::chrono::milliseconds(10000);
-            m_socket.send(NET_MSG_HEART());
+            m_qOutMessage.push(new NET_MSG_HEART());
         }
 
         if (m_qOutMessage.empty()) {
@@ -59,15 +59,16 @@ NetworkEventBus::NetworkEventBus(const std::string& sAddress, const uint16_t nPo
 
     m_qOutMessage = std::queue<NET_MESSAGE*>();
 
-    m_socket.onReceive(HandleMessage);
+    m_socket.setOnReceive(HandleMessage);
     m_tNetMain = std::thread([this] {NetLoop(); });
 }
 
-bool NetworkEventBus::connected() { return m_socket.connected(); }
+bool NetworkEventBus::connected() { return m_socket.bConnected; }
 
 void NetworkEventBus::reconnect()
 {
-    m_socket.Reconnect();
+    throw "not implemented";
+    //m_socket.Reconnect();
 }
 
 void NetworkEventBus::Dispatch(NET_MESSAGE* pMsg)

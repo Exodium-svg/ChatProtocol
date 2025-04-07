@@ -60,7 +60,7 @@ void SocketAccepter::ListenLoop() {
 			continue;
 		}
 
-		Socket* pSocket = new Socket(hRemoteSock, addrIn.sin_port, reinterpret_cast<char*>(&cAddressBuf));
+		Socket* pSocket = new Socket(addrIn, hRemoteSock);
 
 		
 		//TODO: fix whenever the thread is closed after setting a completion routine, It crashes.

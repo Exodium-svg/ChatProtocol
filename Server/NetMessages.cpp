@@ -4,8 +4,8 @@ void OnLogin(Socket* pSocket, const NET_MSG_LOGIN* pMsg)
 {
     const char* pUsername = (const char*)&pMsg->username;
     const char* pPassword = (const char*)&pMsg->password;
-
-    ChatUser* pUser = Server::GetUser(pSocket->m_handle);
+    
+    ChatUser* pUser = Server::GetUser(pSocket->hHandle);
 
     if (!pUser) {
         pSocket->send(NET_RESULT(NetResult::NO_HANDLE, NET_ID_LOGIN));

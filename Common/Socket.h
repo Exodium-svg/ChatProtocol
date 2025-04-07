@@ -19,51 +19,47 @@ static WSADATA* wsadata = new WSAData();
 void DLL_SPEC InitializeNetwork();
 void DLL_SPEC DeInitializeNetwork();
 BOOL DLL_SPEC NetworkReady();
-void CALLBACK onCompletionRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
+void CALLBACK onReceiveHeaderRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 
 
-enum DLL_SPEC Phase {
-	One,
-	Two,
+enum DLL_SPEC SockState {
+	ReceiveHeader,
+	ReceiveMessage,
+	Disconnecting,
+	Disconnected,
 };
 
-struct DLL_SPEC SocketState {
-	char* m_pBuff;
-	Phase m_phase;
-	WSABUF m_wsaBuff;
-};
-// TODO's:
-// Rework handles to be a pointer instead...
-struct DLL_SPEC Socket
-{
-	Handle m_handle;
-	std::mutex m_mtWsaEvent;
-	SOCKET m_hSocket; // socket handle;
-	const uint16_t m_nPort;
-	char m_cAddress[14];
-	char m_cBuff[sizeof(NET_MESSAGE)];
-	void(*m_onReceive)(Socket* pConn, const NET_MESSAGE, const void*) = nullptr;
-	std::atomic_bool bConnected;
-	OVERLAPPED wsaEvent{};
-	WSABUF wsaRoutine{};
-private:
-	WSAPOLLFD wsaPollfd{};
-public:
-	Socket(SOCKET hSocket, const uint16_t nPort, const char* pAddress);
+struct DLL_SPEC Socket {
+	struct DLL_SPEC IOState {
+		SockState sockState;
+		WSABUF wsaBuff;
+		uint64_t nMemSize;
+		Socket* pSocket;
+	};
+
+	Handle hHandle;
+	HANDLE hMutex;
+	SOCKET hSocket;
+	sockaddr_in inAddress;
+	IOState ioState;
+	LPOVERLAPPED pOverlapped;
+	BOOL bConnected;
+	void(*onReceive)(Socket* pSocket, const NET_MESSAGE* pMsg);
+
+	Socket(sockaddr_in address, SOCKET hSocket);
 	Socket(const char* pAddress, const uint16_t nPort);
-	void Reconnect();
-	void pollEvents();
 	~Socket();
-	BOOL connected() { return bConnected.load(); }; // has to be atomic?
-	DWORD send(const void* pData, DWORD size);
-	template <typename T>
-	DWORD send(const T& obj) {
-		static_assert(std::is_trivially_copyable_v<T>, "Cannot serialize non-trivial types");
-		return send(&obj, sizeof(T));
+	std::unique_ptr<char> GetAddress();
+	uint16_t GetPort();
+	DWORD send(const void* pBuff, DWORD dwSize);
+	template<typename Obj>
+	DWORD send(const Obj& ref) {
+		static_assert(std::is_trivially_copyable_v<Obj>, "Cannot serialize non-trivial types");
+		return send(&ref, sizeof(Obj));
 	}
-	const DWORD receive(void* pData, DWORD size);
-	void onReceive(void(*onReceive)(Socket*, const NET_MESSAGE, const void*));
-	void setCompletionRoutine(void (*completionRoutine)(DWORD, DWORD, LPWSAOVERLAPPED, DWORD));
+	const DWORD receive(void* pBuff, DWORD dwSize);
+	void setOnReceive(void(*onReceive)(Socket* pSocket, const NET_MESSAGE* pMsg));
+	void startCompletionRoutine(SockState eState = SockState::ReceiveHeader);
 	void disconnect();
 };
 

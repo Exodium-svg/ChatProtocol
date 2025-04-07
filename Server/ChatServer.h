@@ -8,4 +8,4 @@
 #include <NetMessage.h>
 
 void OnConnect(Socket* pSocket);
-void OnMessage(Socket* pSocket, const NET_MESSAGE header, const void* pData);
+void OnMessage(Socket* pSocket, const NET_MESSAGE* pMsg);

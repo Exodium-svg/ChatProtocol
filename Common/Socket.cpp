@@ -1,11 +1,6 @@
 #include "pch.h"
 #include "Socket.h"
 
-#define FREE_PIO(pIoState) \
-	free(pIoState->wsaBuff.buf); \
-	delete pioState; \
-
-
 static bool initialized = false;
 inline void ConnectToServer(Socket* pSocket, const char* pAddress, const uint16_t nPort) {
 	sockaddr_in* pInAddr = &pSocket->inAddress;
@@ -40,7 +35,6 @@ void InitializeNetwork()
 
 	if (result != 0) {
 		std::ostringstream sstream;
-
 		sstream << "Failed to intialize Winsock2 error: ";
 		sstream << result;
 
@@ -55,14 +49,7 @@ void DeInitializeNetwork() {
 	WSACleanup(); 
 }
 
-BOOL NetworkReady()
-{
-	//if (initialized == false)
-	//	initialized = true;
-
-	//return initialized;
-	return initialized;
-}
+BOOL NetworkReady() { return initialized; }
 
 inline void CloseSocket(Socket* pSocket) {
 	if (pSocket->bConnected == FALSE && pSocket->hSocket == INVALID_SOCKET)
@@ -129,7 +116,7 @@ void CALLBACK onReceiveMessageRoutine(DWORD dwError, DWORD cbTransferred, LPWSAO
 		// do something?
 	}
 
-	if (pSocket->bConnected) {
+	if (pSocket->bConnected == FALSE) {
 		CloseSocket(pSocket);
 		ReleaseMutex(pSocket->hMutex);
 		return;
@@ -159,7 +146,7 @@ void CALLBACK onReceiveHeaderRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOV
 
 	// We are out of sync.
 	// Best to just not question it, However when a shutdown message is received it will be caught in this condition as well.
-	if (cbTransferred != sizeof(NET_MESSAGE)) {
+	if (cbTransferred < sizeof(NET_MESSAGE)) {
 		CloseSocket(pSocket);
 		ReleaseMutex(pSocket->hMutex);
 		return;
@@ -198,7 +185,7 @@ void CALLBACK onReceiveHeaderRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOV
 	
 	pIoState->wsaBuff.len = pHeader->length;
 
-	if (pSocket->bConnected) {
+	if (pSocket->bConnected == FALSE) {
 		CloseSocket(pSocket);
 		ReleaseMutex(pSocket->hMutex);
 		return;
@@ -290,7 +277,6 @@ DWORD Socket::send(const void* pBuff, DWORD dwSize)
 	// turn into a routine so we check if it failed	
 	int nResult = WSASend(hSocket, &wsaBuff, 1, &dwBytesSent, NULL, pOverlapped, NULL);
 
-
 	if (nResult == SOCKET_ERROR) {
 		bConnected = FALSE;
 		ReleaseMutex(hMutex);
@@ -370,12 +356,13 @@ void Socket::disconnect()
 
 	ioState.sockState = SockState::Disconnected;
 
-	if (closesocket(hSocket) == SOCKET_ERROR) {
-		std::stringstream ss;
-		ss << "Failed to close socket error: " << WSAGetLastError();
-		ReleaseMutex(hMutex);
-		throw std::runtime_error(ss.str());
-	}
+	CloseSocket(this);
+	//if (closesocket(hSocket) == SOCKET_ERROR) {
+	//	std::stringstream ss;
+	//	ss << "Failed to close socket error: " << WSAGetLastError();
+	//	ReleaseMutex(hMutex);
+	//	throw std::runtime_error(ss.str());
+	//}
 
 	hSocket = INVALID_SOCKET;
 	ReleaseMutex(hMutex);

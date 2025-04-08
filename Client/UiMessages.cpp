@@ -2,7 +2,6 @@
 
 void OnLogin(const UiLogin* pMsg)
 {
-
     if (Application::GetUIState() != UIState::LOGIN)
         throw std::runtime_error("Unable to login as UIState is not on login.");
 

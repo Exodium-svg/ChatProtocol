@@ -17,9 +17,10 @@ void InterfaceEventBus::Initialize()
 void InterfaceEventBus::BusLoop()
 {
 	while (m_bActive) {
-		std::lock_guard<std::mutex> lock(m_busMutex);
+		m_busMutex.lock();
 		if (m_queue.empty()) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			m_busMutex.unlock();
 			continue;
 		}
 
@@ -28,6 +29,8 @@ void InterfaceEventBus::BusLoop()
 
 		HandleMessage(pMsg);
 		delete pMsg;
+
+		m_busMutex.unlock();
 	}
 
 	m_bActive = false;
@@ -47,6 +50,6 @@ void InterfaceEventBus::HandleMessage(const UiMsg* pMsg)
 
 void InterfaceEventBus::Dispatch(UiMsg* pMsg)
 {
-	std::lock_guard<std::mutex> lock(m_busMutex);
+	std::lock_guard<std::mutex> lock(m_busMutex); // we fail to aquire lock
 	m_queue.push(pMsg);
 }

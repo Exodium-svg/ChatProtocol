@@ -38,6 +38,7 @@ public:
 
 struct DLL_SPEC NET_MSG_HEART : public NET_MESSAGE {
 public:
+	const uint16_t nNumber;
 	NET_MSG_HEART();
 };
 

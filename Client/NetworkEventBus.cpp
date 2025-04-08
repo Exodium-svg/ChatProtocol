@@ -17,7 +17,7 @@ void NetworkEventBus::NetLoop()
         if (!m_socket.bConnected) {
             std::this_thread::sleep_for(std::chrono::seconds(5));
             //TODO fix me: This is broken, still have to fix this...
-            reconnect();
+            //reconnect();
             continue;
         }
 
@@ -31,6 +31,7 @@ void NetworkEventBus::NetLoop()
         }
 
         if (m_qOutMessage.empty()) {
+            //lock.~lock_guard();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
@@ -67,7 +68,7 @@ bool NetworkEventBus::connected() { return m_socket.bConnected; }
 
 void NetworkEventBus::reconnect()
 {
-    throw "not implemented";
+    //throw "not implemented";
     //m_socket.Reconnect();
 }
 

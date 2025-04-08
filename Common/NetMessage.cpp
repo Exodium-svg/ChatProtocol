@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "NetMessage.h"
 
-NET_MSG_HEART::NET_MSG_HEART():NET_MESSAGE(sizeof(NET_MSG_HEART), NET_ID_HEARTBEAT, 0) {}
+NET_MSG_HEART::NET_MSG_HEART() :NET_MESSAGE(sizeof(NET_MSG_HEART), NET_ID_HEARTBEAT, 0), nNumber(0) {}
 
 NET_RESULT::NET_RESULT(const NetResult result, const uint16_t id) : nNetId(id), nResult((uint16_t)result), NET_MESSAGE(sizeof(NET_RESULT), NET_ID_ERROR, 0) {}
 

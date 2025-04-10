@@ -51,7 +51,7 @@ void DeInitializeNetwork() {
 
 BOOL NetworkReady() { return initialized; }
 
-inline void CloseSocket(Socket* pSocket) {
+void CloseSocket(Socket* pSocket) {
 	if (pSocket->bConnected == FALSE && pSocket->hSocket == INVALID_SOCKET)
 		return;
 
@@ -211,6 +211,7 @@ Socket::Socket(sockaddr_in address, SOCKET hSocket)
 	hMutex = CreateMutexA(NULL, false, NULL);
 	hHandle = NULL;
 	bConnected = TRUE;
+	bIOCPSocket = FALSE;
 }
 
 Socket::Socket(const char* pAddress, const uint16_t nPort)
@@ -232,7 +233,7 @@ Socket::Socket(const char* pAddress, const uint16_t nPort)
 	hMutex = CreateMutexA(NULL, false, NULL);
 	hHandle = NULL;
 	bConnected = TRUE;
-
+	bIOCPSocket = FALSE;
 	try {
 		ConnectToServer(this, pAddress, nPort);
 	}
@@ -330,11 +331,19 @@ void Socket::startCompletionRoutine(SockState eState)
 	if (eState == SockState::ReceiveHeader) {
 		dwFlags = MSG_PEEK;
 		dwMsgSize = (DWORD)sizeof(NET_MESSAGE);
-		nResult = WSARecv(hSocket, &ioState.wsaBuff, 1, &dwMsgSize, &dwFlags, pOverlapped, onReceiveHeaderRoutine);
+		// If it is linked to an IOCP it will 
+		if(bIOCPSocket)
+			nResult = WSARecv(hSocket, &ioState.wsaBuff, 1, &dwMsgSize, &dwFlags, pOverlapped, 0);
+		else
+			nResult = WSARecv(hSocket, &ioState.wsaBuff, 1, &dwMsgSize, &dwFlags, pOverlapped, onReceiveHeaderRoutine);
 	}
 	else if (eState == SockState::ReceiveMessage) {
 		dwMsgSize = ioState.wsaBuff.len;
-		nResult = WSARecv(hSocket, &ioState.wsaBuff, 1, &dwMsgSize, &dwFlags, pOverlapped, onReceiveMessageRoutine);
+
+		if (bIOCPSocket)
+			nResult = WSARecv(hSocket, &ioState.wsaBuff, 1, &dwMsgSize, &dwFlags, pOverlapped, 0);
+		else
+			nResult = WSARecv(hSocket, &ioState.wsaBuff, 1, &dwMsgSize, &dwFlags, pOverlapped, onReceiveMessageRoutine);
 	}
 	else {
 		throw std::runtime_error("Unable to set routine for state, Only receiveHeader and ReceiveMessage allowed.");
@@ -343,6 +352,11 @@ void Socket::startCompletionRoutine(SockState eState)
 	// If a operation is handled in Async, then the result code would be that it is pending.
 	if (nResult == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
 		bConnected = FALSE;
+}
+
+void Socket::bindToIOCP(HANDLE hIOCP) { 
+	bIOCPSocket = TRUE;
+	CreateIoCompletionPort((HANDLE)hSocket, hIOCP, (ULONG_PTR)this, 0); 
 }
 
 void Socket::disconnect()

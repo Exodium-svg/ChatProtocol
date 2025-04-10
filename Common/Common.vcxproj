@@ -146,6 +146,10 @@
     <ClInclude Include="FileStream.h" />
     <ClInclude Include="FileSystem.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="IOCP.h" />
+    <ClInclude Include="IOCPAccepter.h" />
+    <ClInclude Include="IOCPConnection.h" />
+    <ClInclude Include="IOState.h" />
     <ClInclude Include="MemoryStream.h" />
     <ClInclude Include="netheader.h" />
     <ClInclude Include="NetMessage.h" />
@@ -161,6 +165,9 @@
     <ClCompile Include="FilePath.cpp" />
     <ClCompile Include="FileStream.cpp" />
     <ClCompile Include="FileSystem.cpp" />
+    <ClCompile Include="IOCP.cpp" />
+    <ClCompile Include="IOCPAccepter.cpp" />
+    <ClCompile Include="IOCPConnection.cpp" />
     <ClCompile Include="MemoryStream.cpp" />
     <ClCompile Include="netheader.cpp" />
     <ClCompile Include="NetMessage.cpp" />

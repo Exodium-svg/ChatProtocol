@@ -6,6 +6,7 @@
 #include "Server.h"
 #include "NetMessages.h"
 #include <NetMessage.h>
+#include <IOCP.h>
 
 void OnConnect(Socket* pSocket);
 void OnMessage(Socket* pSocket, const NET_MESSAGE* pMsg);

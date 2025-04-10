@@ -1,11 +1,18 @@
 #include "Server.h"
 
-
+static IOCPState* iocp = nullptr;
 static Handle m_nHandle{};
 static std::vector<ChatUser> m_vUsers = std::vector<ChatUser>();
 
 void Server::Initialize(Env& env)
 {
+	int32_t nThreads = env.GetInt("io.threads", 4);
+	iocp = IOCP::InitializeIOCP(static_cast<uint32_t>(nThreads));
+}
+
+void Server::Deinitialize()
+{
+	IOCP::ShutdownIOCP(iocp->hIOCP);
 }
 
 ChatUser* Server::AllocateUser()
@@ -23,4 +30,9 @@ ChatUser* Server::GetUser(const Handle hHandle)
 	}
 
 	return nullptr;
+}
+
+IOCPState* Server::GetIOCP()
+{
+	return iocp;
 }

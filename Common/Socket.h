@@ -20,7 +20,7 @@ void DLL_SPEC InitializeNetwork();
 void DLL_SPEC DeInitializeNetwork();
 BOOL DLL_SPEC NetworkReady();
 void CALLBACK onReceiveHeaderRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
-
+void CALLBACK onReceiveMessageRoutine(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 
 enum DLL_SPEC SockState {
 	ReceiveHeader,
@@ -44,6 +44,7 @@ struct DLL_SPEC Socket {
 	IOState ioState;
 	LPOVERLAPPED pOverlapped;
 	BOOL bConnected;
+	BOOL bIOCPSocket;
 	void(*onReceive)(Socket* pSocket, const NET_MESSAGE* pMsg);
 
 	Socket(sockaddr_in address, SOCKET hSocket);
@@ -60,6 +61,8 @@ struct DLL_SPEC Socket {
 	const DWORD receive(void* pBuff, DWORD dwSize);
 	void setOnReceive(void(*onReceive)(Socket* pSocket, const NET_MESSAGE* pMsg));
 	void startCompletionRoutine(SockState eState = SockState::ReceiveHeader);
+	void bindToIOCP(HANDLE hIOCP);
 	void disconnect();
 };
 
+void CloseSocket(Socket* pSocket);

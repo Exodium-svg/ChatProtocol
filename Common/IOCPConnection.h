@@ -1,45 +1,41 @@
 #pragma once
 #include <WinSock2.h>
 #include <ws2tcpip.h>
-#include <mutex>
+#include <atomic>
 #include "IOState.h"
+#include "netheader.h"
 #pragma comment(lib, "Ws2_32.lib")
 
 // Peek header read
-struct DLL_SPEC IOCPConnection
+class DLL_SPEC IOCPConnection
 {
-	Handle hHandle;
+private:
+	void dispatch(const void* pBuff, DWORD dwSize) noexcept;
 	const sockaddr_in addrIn;
 	const SOCKET hSocket;
 	const HANDLE hIOCP;
-	BOOL bConnected; // has to be atomic
+#ifdef _DEBUG
+	bool m_bListening;
+#endif // _DEBUG
+public:
+	Handle hHandle;
+	std::atomic_bool bConnected;
 
-	IOCPConnection(SOCKET hSocket, const sockaddr_in inAddr) : hSocket(hSocket), addrIn(inAddr) {
-		hHandle = NULL;
-		bConnected = TRUE;
+	IOCPConnection(SOCKET hSocket, const sockaddr_in inAddr, const HANDLE hIOCP) 
+		: hSocket(hSocket), addrIn(inAddr), hIOCP(hIOCP), bConnected(true), hHandle(NULL){
+#ifdef _DEBUG
+		m_bListening = false;
+#endif
 	}
 
-	void dispatch(const void* pBuff, DWORD dwSize) noexcept;
-	template<typename Obj>
-	void dispatchMsg(const Obj& ref) noexcept {
-		static_assert(std::is_trivially_copyable<Obj>(), "Cannot serialize non-trivial types");
-		dispatch(&ref, sizeof(Obj));
-	}
 	
-	void dispatchDisconnect() {
-		IOState* pIoState = new IOState();
-		pIoState->wsaBuff.buf = nullptr;
-
-		pIoState->wsaBuff.len = NULL;
-		pIoState->eType = EventType::Disconnect;
-		pIoState->pConn = this;
-
-		PostQueuedCompletionStatus(hIOCP, 0, (ULONG_PTR)this, (OVERLAPPED*)pIoState);
-	}
-
-	void Listen() {
-
-	}
+	template<typename Obj>
+	std::enable_if_t<std::is_trivially_copyable_v<Obj>, void>
+	dispatchMsg(const Obj& ref) noexcept { dispatch(&ref, sizeof(Obj)); }
+	
+	void dispatchDisconnect();
+	void close();
+	void Listen();
 
 };
 

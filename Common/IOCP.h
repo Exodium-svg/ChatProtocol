@@ -14,11 +14,14 @@ typedef HANDLE IOCP_t;
 
 struct DLL_SPEC IOCPState {
 	IOCP_t hIOCP;
+	std::atomic<uint32_t> nThreads;
+	std::atomic_bool bAlive;
+	std::atomic<uint64_t> nBytesSent;
+	std::atomic<uint64_t> nBytesReceived;
 	void(*onReceive)(IOCPConnection* pConn, const NET_MESSAGE* pMsg);
 };
 namespace IOCP {
 	DWORD DLL_SPEC WINAPI IOCPWorkerThread(LPVOID lpParam);
 	DLL_SPEC IOCPState* InitializeIOCP(uint32_t nThreads);
-	DLL_SPEC void RegisterSocket(IOCP_t hIOCP, Socket* pSocket);
-	DLL_SPEC void ShutdownIOCP(IOCP_t hIOCP);
+	DLL_SPEC void ShutdownIOCP(IOCPState* pIOCP);
 };

@@ -14,7 +14,7 @@ enum DLL_SPEC EventType {
 
 struct DLL_SPEC IOState : public OVERLAPPED {
 	EventType eType;
-	BOOL bIsHeader;
 	WSABUF wsaBuff;
+	unsigned long nMemLen;
 	IOCPConnection* pConn;
 };

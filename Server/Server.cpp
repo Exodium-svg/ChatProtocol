@@ -12,7 +12,7 @@ void Server::Initialize(Env& env)
 
 void Server::Deinitialize()
 {
-	IOCP::ShutdownIOCP(iocp->hIOCP);
+	IOCP::ShutdownIOCP(iocp);
 }
 
 ChatUser* Server::AllocateUser()

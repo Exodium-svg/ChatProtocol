@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "IOCP.h"
 
-inline void CleanupState(IOState* pState) {
+__forceinline void CleanupState(IOState* pState) {
 	WSABUF wsaBuff = pState->wsaBuff;
 
 	if (wsaBuff.buf != nullptr) {
@@ -10,33 +10,32 @@ inline void CleanupState(IOState* pState) {
 	}
 }
 
-inline void CleanupSocket(IOState* pState) {
+__forceinline void CleanupSocket(IOState* pState) {
 	IOCPConnection* pConn = pState->pConn;
 
-	closesocket(pConn->hSocket);
-	pConn->bConnected = FALSE;
+	pConn->close();
+	pConn->bConnected = false;
 
 	CleanupState(pState);
 }
 
-inline BOOL ParseHeader(IOState* pState) {
+__forceinline BOOL ProcessHeader(IOState* pState) {
 	WSABUF* pWsaBuf = &pState->wsaBuff;
-	const NET_MESSAGE* pHeader = reinterpret_cast<const NET_MESSAGE*>(pWsaBuf);
+	const NET_MESSAGE* pHeader = reinterpret_cast<const NET_MESSAGE*>(pWsaBuf->buf);
 
 	//TODO: make a flag for chunked.
 	// NO MESSAGE SHOULD BE THIS LONG.
 	if (pHeader->length > 16000)
 		return FALSE;
 
-
-	if (pHeader->length > pWsaBuf->len) {
+	if (pHeader->length > pState->nMemLen) {
 		void* pOldMem = pWsaBuf->buf;
-
 		void* pNewMem = realloc(pOldMem, pHeader->length);
 
 		if (nullptr == pNewMem) {
 			pWsaBuf->buf = reinterpret_cast<char*>(malloc(pHeader->length));
 			pWsaBuf->len = pHeader->length;
+			pState->nMemLen = pWsaBuf->len;
 			free(pOldMem);
 		}
 		else {
@@ -44,26 +43,28 @@ inline BOOL ParseHeader(IOState* pState) {
 			pWsaBuf->len = pHeader->length;
 		}
 	}
+	else
+		pState->wsaBuff.len = pHeader->length;
 
 	return TRUE;
 }
 
-inline void HandleMessage(IOCPConnection* pConn, const IOState* pState, IOCPState* pIOCPState) {
+inline void ProcessMessage(IOCPConnection* pConn, const IOState* pState, IOCPState* pIOCPState) {
 	const NET_MESSAGE* pMsg = reinterpret_cast<const NET_MESSAGE*>(pState->wsaBuff.buf);
 
 	try {
 		pIOCPState->onReceive(pConn, pMsg);
 	}
 	catch (const std::exception&) {
-		// handle exception?
+		// Create exception event handler.
 	}
 }
 
 DWORD __stdcall IOCP::IOCPWorkerThread(LPVOID lpParam)
 {
 	IOCPState* pIOCPState = reinterpret_cast<IOCPState*>(lpParam);
-	
-	while (true) {
+
+	while (pIOCPState->bAlive) {
 		DWORD dwBytesTransfered;
 		ULONG_PTR pCompletionKey;
 		LPOVERLAPPED pOverlapped;
@@ -71,7 +72,7 @@ DWORD __stdcall IOCP::IOCPWorkerThread(LPVOID lpParam)
 		BOOL bResult = GetQueuedCompletionStatus(pIOCPState->hIOCP, &dwBytesTransfered, &pCompletionKey, &pOverlapped, INFINITE);
 
 		if (nullptr == pOverlapped || FALSE == bResult) {
-			continue; // graceful shutdown or error
+			continue; //error or shutdown
 		}
 
 		IOState* pState = reinterpret_cast<IOState*>(pOverlapped);
@@ -86,18 +87,19 @@ DWORD __stdcall IOCP::IOCPWorkerThread(LPVOID lpParam)
 
 		switch (type) {
 		case EventType::Header:
-			if (ParseHeader(pState) == FALSE) {
+			if (ProcessHeader(pState) == FALSE) {
 				CleanupSocket(pState);
 				continue;
 			}
 			break;
 		case EventType::Message:
-			HandleMessage(pConn, pState, pIOCPState);
+			ProcessMessage(pConn, pState, pIOCPState);
 			break;
 		case EventType::Disconnect:
 			CleanupSocket(pState);
 			continue;
 		case EventType::Send:
+			pIOCPState->nBytesSent += dwBytesTransfered;
 			CleanupState(pState);
 			continue;
 		default:
@@ -105,26 +107,33 @@ DWORD __stdcall IOCP::IOCPWorkerThread(LPVOID lpParam)
 			break;
 		}
 
-		if (EventType::Header != type)
-			CleanupState(pState);
+		pIOCPState->nBytesReceived += dwBytesTransfered;
 
 		DWORD dwFlags = NULL;
 
-		if (EventType::Header == type)
+		// set the state correct to receive a header.
+		if (EventType::Header == type) {
 			dwFlags = MSG_PEEK;
+			pState->wsaBuff.len = sizeof(NET_MESSAGE);
+		}
 
 		int nResult = WSARecv(pConn->hHandle, &pState->wsaBuff, 1, nullptr, &dwFlags, pOverlapped, nullptr);
 
-		if (nResult != NO_ERROR && WSA_IO_PENDING != WSAGetLastError())
+		if (NO_ERROR != nResult && WSA_IO_PENDING != WSAGetLastError())
 			CleanupSocket(pState);
 	}
+
+	return NO_ERROR;
 }
 
 DLL_SPEC IOCPState* IOCP::InitializeIOCP(uint32_t nThreads)
 {
 	IOCPState* pState = new IOCPState();
+	ZeroMemory(pState, sizeof(IOCPState));
 
 	pState->hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
+	pState->bAlive = true;
+	pState->nThreads = nThreads;
 
 	for (unsigned int i = 0; i < nThreads; i++) {
 		HANDLE hThread = CreateThread(
@@ -136,7 +145,7 @@ DLL_SPEC IOCPState* IOCP::InitializeIOCP(uint32_t nThreads)
 			0
 		);
 
-		if (hThread == nullptr) {
+		if (nullptr == hThread) {
 			throw std::runtime_error("Failed to create threads for IOCP");
 		}
 
@@ -152,5 +161,9 @@ DLL_SPEC IOCPState* IOCP::InitializeIOCP(uint32_t nThreads)
 
 	return pState;
 }
-DLL_SPEC void IOCP::RegisterSocket(IOCP_t hIOCP, Socket* pSocket) { pSocket->bindToIOCP(hIOCP); }
-DLL_SPEC void IOCP::ShutdownIOCP(IOCP_t hIOCP) { PostQueuedCompletionStatus(hIOCP, 0, 0, nullptr); }
+DLL_SPEC void IOCP::ShutdownIOCP(IOCPState* pIOCP) {
+	pIOCP->bAlive = false;
+
+	for(uint32_t i = 0; i < pIOCP->nThreads; i++)
+		PostQueuedCompletionStatus(pIOCP->hIOCP, 0, 0, nullptr);
+}

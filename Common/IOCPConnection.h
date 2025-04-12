@@ -27,15 +27,14 @@ public:
 		m_bListening = false;
 #endif
 	}
-
-	
 	template<typename Obj>
 	std::enable_if_t<std::is_trivially_copyable_v<Obj>, void>
 	dispatchMsg(const Obj& ref) noexcept { dispatch(&ref, sizeof(Obj)); }
-	
 	void dispatchDisconnect();
 	void close();
 	void Listen();
 
+	std::unique_ptr<char> GetAddress();
+	uint16_t GetPort();
 };
 

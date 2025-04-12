@@ -97,6 +97,7 @@ DWORD __stdcall IOCP::IOCPWorkerThread(LPVOID lpParam)
 			break;
 		case EventType::Disconnect:
 			CleanupSocket(pState);
+			pIOCPState->onDisconnect(pConn);
 			continue;
 		case EventType::Send:
 			pIOCPState->nBytesSent += dwBytesTransfered;

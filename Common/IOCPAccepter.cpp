@@ -65,6 +65,8 @@ void IOCPAccepter::BlockAddress(const char* pAddress)
 	m_vIpBlocked.emplace_back(pAddress);
 }
 
+void IOCPAccepter::SetReceive(void(*onConnect)(IOCPConnection* pConn)) { this->onConnect = onConnect; }
+
 void IOCPAccepter::AcceptLoop()
 {
 	int addrLen = sizeof(sockaddr_in);

@@ -25,6 +25,11 @@ void OnLogin(IOCPConnection* pConn, const NET_MSG_LOGIN* pMsg)
     pConn->dispatchMsg(NET_MSG_HANDLE(pUser->m_hHandle));
 }
 
+void OnHeartBeat(IOCPConnection* pConn)
+{
+    pConn->dispatchMsg(NET_MSG_HEART());
+}
+
 void OnHandleRequest(Socket* pSocket, const NET_MSG_HANDLE* pMsg)
 {
     if (pMsg->hHandle == NULL) {

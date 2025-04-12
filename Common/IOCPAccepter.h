@@ -35,7 +35,7 @@ public:
 	IOCPAccepter(const HANDLE hIOCP, const char* pAddress, const uint16_t nPort, void(*onConnect)(IOCPConnection* pConn));
 	~IOCPAccepter();
 	void BlockAddress(const char* pAddress);
-
+	void SetReceive(void(*onConnect)(IOCPConnection* pConn));
 private:
 	void AcceptLoop();
 };

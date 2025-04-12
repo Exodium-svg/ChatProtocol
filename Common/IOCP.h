@@ -19,6 +19,7 @@ struct DLL_SPEC IOCPState {
 	std::atomic<uint64_t> nBytesSent;
 	std::atomic<uint64_t> nBytesReceived;
 	void(*onReceive)(IOCPConnection* pConn, const NET_MESSAGE* pMsg);
+	void(*onDisconnect)(IOCPConnection* pConn);
 };
 namespace IOCP {
 	DWORD DLL_SPEC WINAPI IOCPWorkerThread(LPVOID lpParam);

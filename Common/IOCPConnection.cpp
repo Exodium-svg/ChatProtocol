@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "IOCPConnection.h"
-
 void IOCPConnection::dispatch(const void* pData, DWORD len) noexcept
 {
 	// maybe use same block of memory?
@@ -31,7 +30,10 @@ void IOCPConnection::dispatchDisconnect()
 	PostQueuedCompletionStatus(hIOCP, 0, (ULONG_PTR)this, (OVERLAPPED*)pIoState);
 }
 
-void IOCPConnection::close() { closesocket(hSocket); }
+void IOCPConnection::close() { 
+	if(hSocket != INVALID_SOCKET)
+		closesocket(hSocket); 
+}
 
 void IOCPConnection::Listen()
 {
@@ -54,3 +56,14 @@ void IOCPConnection::Listen()
 	if (nResult != NO_ERROR && WSAGetLastError() != WSA_IO_PENDING)
 		dispatchDisconnect();
 }
+
+std::unique_ptr<char> IOCPConnection::GetAddress()
+{
+	std::unique_ptr<char> pAddrBuff = std::make_unique<char>(INET_ADDRSTRLEN);
+
+	InetNtopA(AF_INET, &addrIn, pAddrBuff.get(), INET_ADDRSTRLEN);
+
+	return std::move(pAddrBuff);
+}
+
+uint16_t IOCPConnection::GetPort() { return ntohs(addrIn.sin_port); }
